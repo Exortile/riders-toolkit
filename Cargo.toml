@@ -1,0 +1,31 @@
+[package]
+name = "riders-toolkit"
+version = "0.1.0"
+authors = ["Sten-Kristjan Prantsu <krikuraud@gmail.com>"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+egui = "0.31"
+eframe = { version = "0.31", default-features = false, features = [
+    "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+    "persistence",   # Enable restoring app state when restarting the app.
+    "wayland",       # To support Linux (and CI)
+] }
+log = "0.4"
+env_logger = { version = "0.11", default-features = false, features = [
+    "auto-color",
+    "humantime",
+] }
+strum = { version = "0.27", features = ["derive"] }
+rfd = "0.15"
+byteorder = "1"
+
+[profile.release]
+opt-level = 2
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 2
