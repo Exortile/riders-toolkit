@@ -6,8 +6,8 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-egui = "0.31"
-eframe = { version = "0.31", default-features = false, features = [
+egui = "0.30"
+eframe = { version = "0.30", default-features = false, features = [
     "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
@@ -22,6 +22,7 @@ env_logger = { version = "0.11", default-features = false, features = [
 strum = { version = "0.27", features = ["derive"] }
 rfd = "0.15"
 byteorder = "1"
+egui-modal = "0.6.0"
 
 [profile.release]
 opt-level = 2
