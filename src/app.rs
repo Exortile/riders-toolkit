@@ -1,4 +1,5 @@
 use crate::riders::texture_archive::TextureArchive;
+use egui::ScrollArea;
 use egui_modal::{Icon, Modal};
 use strum::IntoEnumIterator;
 
@@ -50,6 +51,15 @@ impl EguiApp {
                     TextureArchive::new(self.picked_file.clone().unwrap())
                         .expect("File could not be opened."),
                 );
+
+                if let Err(err_str) = &self.picked_tex_archive.as_mut().unwrap().read() {
+                    modal
+                        .dialog()
+                        .with_title("Error")
+                        .with_body(err_str)
+                        .with_icon(Icon::Error)
+                        .open();
+                }
             }
         }
 
@@ -75,6 +85,17 @@ impl EguiApp {
                 .with_body("Body test")
                 .with_icon(Icon::Info)
                 .open();
+        }
+
+        if let Some(_tex_archive) = &self.picked_tex_archive {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.label("Test 1");
+                ui.label("Test 2");
+                ui.label("Test 3");
+                for i in 0..10 {
+                    ui.label("More test");
+                }
+            });
         }
     }
 
