@@ -11,7 +11,7 @@ pub struct TextureArchive {
     is_without_model: bool,
 
     gvr_offsets: Vec<u32>,
-    texture_names: Vec<String>,
+    pub textures: Vec<GVRTexture>,
 }
 
 impl TextureArchive {
@@ -41,8 +41,13 @@ impl TextureArchive {
                 .push(self.cursor.read_u32::<BigEndian>().unwrap());
         }
 
+        // Skip flags if necessary
+        if self.is_without_model {
+            let _ = self.cursor.seek_relative(self.texture_num.into()); // TODO: implement EOF check
+        }
+
         // Read all texture names in the file
-        for _ in 0..self.texture_num {
+        for i in 0..self.texture_num {
             let mut buf: Vec<u8> = vec![];
             let _ = self.cursor.read_until(0x00, &mut buf); // TODO: implement EOF check
 
@@ -53,13 +58,27 @@ impl TextureArchive {
 
             if !ascii_buf
                 .iter()
-                .all(|&e| e.is_alphanumeric() || e.is_ascii_whitespace())
+                .all(|&e| e.is_ascii_graphic() || e.is_ascii_whitespace())
             {
                 return Err("Can't read texture file names. This is most likely an invalid texture archive.");
             }
 
             let tex_name: String = ascii_buf.into_iter().collect();
-            self.texture_names.push(tex_name);
+
+            let last_pos = self.cursor.position();
+            if self
+                .cursor
+                .seek(SeekFrom::Start(self.gvr_offsets[i as usize].into()))
+                .is_err()
+            {
+                return Err("Something went wrong reading the texture archive.");
+            }
+
+            if let Ok(tex) = GVRTexture::new_from_cursor(tex_name, &mut self.cursor) {
+                self.textures.push(tex);
+            }
+
+            let _ = self.cursor.seek(SeekFrom::Start(last_pos));
         }
 
         self.debug_print();
@@ -101,7 +120,7 @@ impl TextureArchive {
             println!("{offset}");
         }
 
-        for name in &self.texture_names {
+        for GVRTexture { name, .. } in &self.textures {
             println!("{name}");
         }
     }
