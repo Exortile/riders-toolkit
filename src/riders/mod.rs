@@ -1,2 +1,2 @@
 pub mod texture_archive;
-mod gvr_texture;
+pub mod gvr_texture;
