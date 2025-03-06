@@ -1,11 +1,11 @@
 use crate::riders::texture_archive::TextureArchive;
-use egui::ScrollArea;
 use egui_modal::{Icon, Modal};
 use strum::IntoEnumIterator;
 
 #[derive(PartialEq, Clone, Default, strum::Display, strum::EnumIter)]
 enum AppTabs {
     #[default]
+    Home,
     #[strum(to_string = "Texture Archives")]
     TextureArchives,
     #[strum(to_string = "Graphical Archives")]
@@ -25,7 +25,15 @@ pub struct EguiApp {
 
 impl EguiApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Set UI zoom
         cc.egui_ctx.set_pixels_per_point(1.5);
+
+        // Set up general style used everywhere
+        cc.egui_ctx.style_mut(|style| {
+            style.spacing.scroll.floating = false;
+            style.spacing.item_spacing = [10.0, 10.0].into();
+        });
+
         Self::default()
     }
 
@@ -39,10 +47,16 @@ impl EguiApp {
         ui.separator();
     }
 
+    fn draw_home_tab(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+        ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+            ui.heading("Riders Toolkit");
+            ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")))
+        });
+    }
+
     fn draw_tex_archive_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         let mut modal = Modal::new(ctx, "test");
         modal.show_dialog();
-        ui.label("Texture archives");
 
         if ui.button("Open file...").clicked() {
             if let Some(path) = rfd::FileDialog::new().pick_file() {
@@ -68,17 +82,7 @@ impl EguiApp {
             ui.monospace(picked_file.to_string());
         }
 
-        if ui
-            .add_enabled(
-                self.picked_tex_archive.is_some(),
-                egui::Button::new("Tex Arc Button"),
-            )
-            .clicked()
-        {
-            println!("Button clicked!");
-        }
-
-        if ui.button("Test").clicked() {
+        if ui.button("Test Dialog").clicked() {
             modal
                 .dialog()
                 .with_title("Test dialog")
@@ -87,21 +91,45 @@ impl EguiApp {
                 .open();
         }
 
-        if let Some(_tex_archive) = &self.picked_tex_archive {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.label("Test 1");
-                ui.label("Test 2");
-                ui.label("Test 3");
-                for i in 0..10 {
-                    ui.label("More test");
-                }
+        if let Some(tex_archive) = &mut self.picked_tex_archive {
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.heading("Texture list:");
+                let _ = ui.button("Add");
             });
+
+            egui::ScrollArea::vertical()
+                .auto_shrink(false)
+                .drag_to_scroll(false)
+                .show(ui, |ui| {
+                    let mut i = 1; // have to do it without enumerate()
+                    for tex in &mut tex_archive.textures {
+                        ui.horizontal(|ui| {
+                            ui.scope(|ui| {
+                                ui.style_mut().interaction.selectable_labels = false;
+                                ui.add_sized([40.0, 20.0], egui::Label::new(format!("{i}.")));
+                            });
+
+                            let _res = ui.add(
+                                egui::TextEdit::singleline(&mut tex.name).hint_text("Texture name"),
+                            );
+
+                            let _ = ui.button("⏶");
+                            let _ = ui.button("⏷");
+                            let _ = ui.button("Remove");
+                        });
+
+                        i += 1;
+                    }
+                });
         }
     }
 
     fn draw_current_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-        if self.current_tab == AppTabs::TextureArchives {
-            self.draw_tex_archive_tab(ctx, ui);
+        match self.current_tab {
+            AppTabs::TextureArchives => self.draw_tex_archive_tab(ctx, ui),
+            AppTabs::Home => self.draw_home_tab(ctx, ui),
+            _ => {}
         }
     }
 }
