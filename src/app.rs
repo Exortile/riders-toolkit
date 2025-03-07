@@ -55,16 +55,24 @@ impl EguiApp {
     }
 
     fn draw_tex_archive_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-        let mut modal = Modal::new(ctx, "test");
+        let mut modal = Modal::new(ctx, "generic-texarc-dialog");
         modal.show_dialog();
 
         if ui.button("Open file...").clicked() {
             if let Some(path) = rfd::FileDialog::new().pick_file() {
                 self.picked_file = Some(path.display().to_string());
-                self.picked_tex_archive = Some(
-                    TextureArchive::new(self.picked_file.clone().unwrap())
-                        .expect("File could not be opened."),
-                );
+
+                let tex_archive = TextureArchive::new(self.picked_file.clone().unwrap());
+                if tex_archive.is_err() {
+                    modal
+                        .dialog()
+                        .with_title("Error")
+                        .with_body("File could not be opened.")
+                        .with_icon(Icon::Error)
+                        .open();
+                } else {
+                    self.picked_tex_archive = Some(tex_archive.unwrap());
+                }
 
                 if let Err(err_str) = &self.picked_tex_archive.as_mut().unwrap().read() {
                     modal
