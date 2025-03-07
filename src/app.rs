@@ -103,14 +103,23 @@ impl EguiApp {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.heading("Texture list:");
-                let _ = ui.button("Add");
+
+                // TODO: implement adding textures via file picker
+                let _ = ui.button("Add").on_hover_ui(|ui| {
+                    ui.label("Adds a new GVR texture to the end of the texture list.");
+                });
             });
 
             egui::ScrollArea::vertical()
                 .auto_shrink(false)
                 .drag_to_scroll(false)
                 .show(ui, |ui| {
+                    let mut removed_index: Option<usize> = None;
+                    let mut moved_up_index: Option<usize> = None;
+                    let mut moved_down_index: Option<usize> = None;
+
                     let mut i = 1; // have to do it without enumerate()
+                    let textures_count = tex_archive.textures.len();
                     for tex in &mut tex_archive.textures {
                         ui.horizontal(|ui| {
                             ui.scope(|ui| {
@@ -118,16 +127,35 @@ impl EguiApp {
                                 ui.add_sized([40.0, 20.0], egui::Label::new(format!("{i}.")));
                             });
 
-                            let _res = ui.add(
+                            let _ = ui.add(
                                 egui::TextEdit::singleline(&mut tex.name).hint_text("Texture name"),
                             );
 
-                            let _ = ui.button("⏶");
-                            let _ = ui.button("⏷");
-                            let _ = ui.button("Remove");
+                            if ui.add_enabled(i > 1, egui::Button::new("⏶")).clicked() {
+                                moved_up_index = Some(i - 1);
+                            }
+                            if ui
+                                .add_enabled(i - 1 < textures_count - 1, egui::Button::new("⏷"))
+                                .clicked()
+                            {
+                                moved_down_index = Some(i - 1);
+                            }
+                            if ui.button("Remove").clicked() {
+                                removed_index = Some(i - 1);
+                            }
                         });
 
                         i += 1;
+                    }
+
+                    if let Some(idx) = removed_index {
+                        tex_archive.textures.remove(idx);
+                    }
+                    if let Some(idx) = moved_up_index {
+                        tex_archive.textures.swap(idx, idx - 1);
+                    }
+                    if let Some(idx) = moved_down_index {
+                        tex_archive.textures.swap(idx, idx + 1);
                     }
                 });
         }
