@@ -102,7 +102,10 @@ impl EguiApp {
                     .is_empty();
 
             if ui
-                .add_enabled(is_archive_exportable, egui::Button::new("Export..."))
+                .add_enabled(
+                    is_archive_exportable,
+                    egui::Button::new("Export archive..."),
+                )
                 .clicked()
             {
                 if let Some(rfd_path) = rfd::FileDialog::new().save_file() {
@@ -116,14 +119,14 @@ impl EguiApp {
                         modal
                             .dialog()
                             .with_title("Success")
-                            .with_body("Export success")
+                            .with_body("Texture archive exported successfully!")
                             .with_icon(Icon::Success)
                             .open();
                     } else {
                         modal
                             .dialog()
                             .with_title("Error")
-                            .with_body("Export failed")
+                            .with_body("Texture archive export failed.")
                             .with_icon(Icon::Error)
                             .open();
                     }
@@ -138,13 +141,14 @@ impl EguiApp {
 
         if let Some(tex_archive) = &mut self.current_tex_archive {
             ui.separator();
+            ui.checkbox(&mut tex_archive.is_without_model, "Is without a model");
             ui.horizontal(|ui| {
                 ui.heading("Texture list:");
 
                 if ui
                     .button("Add")
                     .on_hover_ui(|ui| {
-                        ui.label("Adds a new GVR texture to the end of the texture list.");
+                        ui.label("Adds a new GVR texture(s) to the end of the texture list.");
                     })
                     .clicked()
                 {

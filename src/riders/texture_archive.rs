@@ -13,7 +13,7 @@ pub struct TextureArchive {
     cursor: Cursor<Vec<u8>>,
 
     texture_num: u16,
-    is_without_model: bool,
+    pub is_without_model: bool,
 
     gvr_offsets: Vec<u32>,
     pub textures: Vec<GVRTexture>,
@@ -121,7 +121,12 @@ impl TextureArchive {
 
         // Write texture names
         for tex in &self.textures {
-            file.write_all(tex.name.as_bytes())?;
+            if tex.name.is_empty() {
+                file.write_all(b"unnamed")?;
+            } else {
+                file.write_all(tex.name.as_bytes())?;
+            }
+
             file.write_u8(0)?; // null delimiter
         }
 
