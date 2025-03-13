@@ -2,6 +2,7 @@
 
 mod app;
 mod riders;
+pub mod util;
 
 fn main() -> eframe::Result {
     env_logger::init();

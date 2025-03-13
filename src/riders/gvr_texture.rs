@@ -5,18 +5,19 @@ use byteorder::{LittleEndian, ReadBytesExt};
 #[derive(Default)]
 pub struct GVRTexture {
     pub name: String,
-    data: Cursor<Vec<u8>>,
+    pub size: u32,
+    pub data: Cursor<Vec<u8>>,
 }
 
 impl GVRTexture {
-    pub fn new(name: String, data: Cursor<Vec<u8>>) -> Self {
-        Self { name, data }
+    pub fn new(name: String, size: u32, data: Cursor<Vec<u8>>) -> Self {
+        Self { name, size, data }
     }
 
     pub fn new_from_cursor(name: String, cursor: &mut Cursor<Vec<u8>>) -> Result<Self, ()> {
         GVRTexture::validate(cursor)?;
         let tex_size = GVRTexture::read_texture_size(cursor)?;
-        let mut buf = Vec::with_capacity(tex_size.try_into().unwrap());
+        let mut buf = vec![0; tex_size.try_into().unwrap()];
 
         // Read whole texture into buffer
         if cursor.read_exact(&mut buf).is_err() {
@@ -24,7 +25,7 @@ impl GVRTexture {
         }
 
         // Return texture with a cursor containing just the texture
-        Ok(GVRTexture::new(name, Cursor::new(buf)))
+        Ok(GVRTexture::new(name, tex_size, Cursor::new(buf)))
     }
 
     pub fn validate(cursor: &mut Cursor<Vec<u8>>) -> Result<(), ()> {

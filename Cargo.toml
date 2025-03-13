@@ -23,6 +23,7 @@ strum = { version = "0.27", features = ["derive"] }
 rfd = "0.15"
 byteorder = "1"
 egui-modal = "0.6.0"
+num = "0.4.3"
 
 [profile.release]
 opt-level = 2

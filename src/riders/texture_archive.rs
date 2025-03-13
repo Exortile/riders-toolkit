@@ -1,6 +1,11 @@
+use crate::util::Alignment;
+
 use super::gvr_texture::GVRTexture;
-use byteorder::{BigEndian, ReadBytesExt};
-use std::io::{BufRead, Cursor, Seek, SeekFrom};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::{
+    fs::File,
+    io::{BufRead, Cursor, Read, Seek, SeekFrom, Write},
+};
 
 #[derive(Default)]
 pub struct TextureArchive {
@@ -88,6 +93,75 @@ impl TextureArchive {
         }
 
         Ok(())
+    }
+
+    pub fn export(&self, path: &str) -> std::io::Result<()> {
+        let mut file = File::create(path)?;
+
+        file.write_u16::<BigEndian>(self.textures.len().try_into().unwrap())?;
+        file.write_u16::<BigEndian>(self.is_without_model.into())?;
+
+        let offsets = self.calculate_offset_table();
+
+        // Write offset table
+        for offset in &offsets {
+            file.write_u32::<BigEndian>(*offset)?;
+        }
+
+        // Write flags if needed
+        if self.is_without_model {
+            for _ in 0..self.textures.len() {
+                file.write_u8(0x11)?;
+            }
+        }
+
+        // Write texture names
+        for tex in &self.textures {
+            file.write_all(tex.name.as_bytes())?;
+            file.write_u8(0)?; // null delimiter
+        }
+
+        // Padding
+        file.set_len(offsets[0].into())?;
+        file.seek(SeekFrom::Start(offsets[0].into()))?;
+
+        // Write texture data
+        for tex in &self.textures {
+            file.write_all(tex.data.get_ref())?;
+        }
+
+        Ok(())
+    }
+
+    fn calculate_first_tex_offset(&self) -> usize {
+        let mut result_offset = 4; // 4 bytes to account for start of file
+        let offset_table_size = self.textures.len() * size_of::<u32>();
+
+        result_offset += offset_table_size;
+
+        if self.is_without_model {
+            result_offset += self.textures.len();
+        }
+
+        // Calculate length of each texture name, add it to the offset
+        for tex in &self.textures {
+            result_offset += tex.name.len() + 1; // extra byte for null delimiter
+        }
+
+        let aligned = Alignment::A32(result_offset);
+        aligned.unwrap()
+    }
+
+    fn calculate_offset_table(&self) -> Vec<u32> {
+        let mut offsets = Vec::with_capacity(self.textures.len());
+        let mut cur_offset = self.calculate_first_tex_offset() as u32;
+
+        for tex in &self.textures {
+            offsets.push(cur_offset);
+            cur_offset += tex.size;
+        }
+
+        offsets
     }
 
     fn validate_textures(&mut self) -> bool {

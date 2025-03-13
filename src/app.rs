@@ -109,6 +109,26 @@ impl EguiApp {
                 let _ = ui.button("Add").on_hover_ui(|ui| {
                     ui.label("Adds a new GVR texture to the end of the texture list.");
                 });
+
+                if ui.button("Export").clicked() {
+                    if let Some(rfd_path) = rfd::FileDialog::new().save_file() {
+                        if tex_archive.export(&rfd_path.display().to_string()).is_ok() {
+                            modal
+                                .dialog()
+                                .with_title("Success")
+                                .with_body("Export success")
+                                .with_icon(Icon::Success)
+                                .open();
+                        } else {
+                            modal
+                                .dialog()
+                                .with_title("Error")
+                                .with_body("Export failed")
+                                .with_icon(Icon::Error)
+                                .open();
+                        }
+                    }
+                }
             });
 
             egui::ScrollArea::vertical()
