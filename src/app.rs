@@ -1,4 +1,6 @@
-use crate::riders::texture_archive::TextureArchive;
+use std::io::Cursor;
+
+use crate::riders::{gvr_texture::GVRTexture, texture_archive::TextureArchive};
 use egui::Color32;
 use egui_modal::{Icon, Modal};
 use strum::IntoEnumIterator;
@@ -139,10 +141,59 @@ impl EguiApp {
             ui.horizontal(|ui| {
                 ui.heading("Texture list:");
 
-                // TODO: implement adding textures via file picker
-                let _ = ui.button("Add").on_hover_ui(|ui| {
-                    ui.label("Adds a new GVR texture to the end of the texture list.");
-                });
+                if ui
+                    .button("Add")
+                    .on_hover_ui(|ui| {
+                        ui.label("Adds a new GVR texture to the end of the texture list.");
+                    })
+                    .clicked()
+                {
+                    if let Some(files) = rfd::FileDialog::new().pick_files() {
+                        let mut broken_file: Option<String> = None;
+
+                        for file in files {
+                            let path = file.display().to_string();
+                            let mut cursor = Cursor::new(std::fs::read(&path).unwrap());
+                            let texture = GVRTexture::new_from_cursor(
+                                file.file_stem()
+                                    .unwrap()
+                                    .to_os_string()
+                                    .into_string()
+                                    .unwrap(),
+                                &mut cursor,
+                            );
+
+                            if let Ok(valid_tex) = texture {
+                                tex_archive.textures.push(valid_tex);
+                            } else {
+                                broken_file = Some(
+                                    file.file_name()
+                                        .unwrap()
+                                        .to_os_string()
+                                        .into_string()
+                                        .unwrap(),
+                                );
+                                break;
+                            }
+                        }
+
+                        if let Some(file) = broken_file {
+                            modal
+                                .dialog()
+                                .with_title("Error")
+                                .with_body(format!("File {} is not a proper GVR texture.", file))
+                                .with_icon(Icon::Error)
+                                .open();
+                        } else {
+                            modal
+                                .dialog()
+                                .with_title("Success")
+                                .with_body("Texture(s) added succesfully!")
+                                .with_icon(Icon::Success)
+                                .open();
+                        }
+                    }
+                }
             });
 
             egui::ScrollArea::vertical()
