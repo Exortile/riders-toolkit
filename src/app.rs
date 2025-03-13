@@ -1,4 +1,5 @@
 use crate::riders::texture_archive::TextureArchive;
+use egui::Color32;
 use egui_modal::{Icon, Modal};
 use strum::IntoEnumIterator;
 
@@ -140,9 +141,14 @@ impl EguiApp {
                             {
                                 moved_down_index = Some(i - 1);
                             }
-                            if ui.button("Remove").clicked() {
-                                removed_index = Some(i - 1);
-                            }
+
+                            ui.scope(|ui| {
+                                ui.style_mut().visuals.widgets.hovered.weak_bg_fill =
+                                    Color32::DARK_RED;
+                                if ui.button("Remove").clicked() {
+                                    removed_index = Some(i - 1);
+                                }
+                            });
                         });
 
                         i += 1;
