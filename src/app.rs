@@ -21,7 +21,7 @@ enum AppTabs {
 pub struct EguiApp {
     current_tab: AppTabs,
     picked_file: Option<String>,
-    picked_tex_archive: Option<TextureArchive>,
+    current_tex_archive: Option<TextureArchive>,
 }
 
 impl EguiApp {
@@ -59,48 +59,82 @@ impl EguiApp {
         let mut modal = Modal::new(ctx, "generic-texarc-dialog");
         modal.show_dialog();
 
-        if ui.button("Open file...").clicked() {
-            if let Some(path) = rfd::FileDialog::new().pick_file() {
-                self.picked_file = Some(path.display().to_string());
+        ui.horizontal(|ui| {
+            if ui.button("Open file...").clicked() {
+                if let Some(path) = rfd::FileDialog::new().pick_file() {
+                    self.picked_file = Some(path.display().to_string());
 
-                let tex_archive = TextureArchive::new(self.picked_file.clone().unwrap());
-                if tex_archive.is_err() {
-                    modal
-                        .dialog()
-                        .with_title("Error")
-                        .with_body("File could not be opened.")
-                        .with_icon(Icon::Error)
-                        .open();
-                } else {
-                    self.picked_tex_archive = Some(tex_archive.unwrap());
-                }
+                    let tex_archive = TextureArchive::new(self.picked_file.clone().unwrap());
+                    if tex_archive.is_err() {
+                        modal
+                            .dialog()
+                            .with_title("Error")
+                            .with_body("File could not be opened.")
+                            .with_icon(Icon::Error)
+                            .open();
+                    } else {
+                        self.current_tex_archive = Some(tex_archive.unwrap());
+                    }
 
-                if let Err(err_str) = &self.picked_tex_archive.as_mut().unwrap().read() {
-                    modal
-                        .dialog()
-                        .with_title("Error")
-                        .with_body(err_str)
-                        .with_icon(Icon::Error)
-                        .open();
+                    if let Err(err_str) = &self.current_tex_archive.as_mut().unwrap().read() {
+                        modal
+                            .dialog()
+                            .with_title("Error")
+                            .with_body(err_str)
+                            .with_icon(Icon::Error)
+                            .open();
+                    }
                 }
             }
-        }
+
+            if ui.button("Create new...").clicked() {
+                self.current_tex_archive = Some(TextureArchive::new_empty());
+            }
+
+            let is_archive_exportable = self.current_tex_archive.is_some()
+                && !self
+                    .current_tex_archive
+                    .as_ref()
+                    .unwrap()
+                    .textures
+                    .is_empty();
+
+            if ui
+                .add_enabled(is_archive_exportable, egui::Button::new("Export..."))
+                .clicked()
+            {
+                if let Some(rfd_path) = rfd::FileDialog::new().save_file() {
+                    if self
+                        .current_tex_archive
+                        .as_ref()
+                        .unwrap()
+                        .export(&rfd_path.display().to_string())
+                        .is_ok()
+                    {
+                        modal
+                            .dialog()
+                            .with_title("Success")
+                            .with_body("Export success")
+                            .with_icon(Icon::Success)
+                            .open();
+                    } else {
+                        modal
+                            .dialog()
+                            .with_title("Error")
+                            .with_body("Export failed")
+                            .with_icon(Icon::Error)
+                            .open();
+                    }
+                }
+            }
+        });
 
         if let Some(picked_file) = &self.picked_file {
             ui.label("Picked file:");
             ui.monospace(picked_file.to_string());
         }
 
-        if ui.button("Test Dialog").clicked() {
-            modal
-                .dialog()
-                .with_title("Test dialog")
-                .with_body("Body test")
-                .with_icon(Icon::Info)
-                .open();
-        }
-
-        if let Some(tex_archive) = &mut self.picked_tex_archive {
+        if let Some(tex_archive) = &mut self.current_tex_archive {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.heading("Texture list:");
@@ -109,26 +143,6 @@ impl EguiApp {
                 let _ = ui.button("Add").on_hover_ui(|ui| {
                     ui.label("Adds a new GVR texture to the end of the texture list.");
                 });
-
-                if ui.button("Export").clicked() {
-                    if let Some(rfd_path) = rfd::FileDialog::new().save_file() {
-                        if tex_archive.export(&rfd_path.display().to_string()).is_ok() {
-                            modal
-                                .dialog()
-                                .with_title("Success")
-                                .with_body("Export success")
-                                .with_icon(Icon::Success)
-                                .open();
-                        } else {
-                            modal
-                                .dialog()
-                                .with_title("Error")
-                                .with_body("Export failed")
-                                .with_icon(Icon::Error)
-                                .open();
-                        }
-                    }
-                }
             });
 
             egui::ScrollArea::vertical()

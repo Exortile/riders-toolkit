@@ -1,4 +1,4 @@
-use std::io::{self, Cursor, Error, ErrorKind, Read, Seek, SeekFrom};
+use std::io::{Cursor, Read, Seek, SeekFrom};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 

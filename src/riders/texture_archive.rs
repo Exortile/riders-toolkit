@@ -4,7 +4,7 @@ use super::gvr_texture::GVRTexture;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::{
     fs::File,
-    io::{BufRead, Cursor, Read, Seek, SeekFrom, Write},
+    io::{BufRead, Cursor, Seek, SeekFrom, Write},
 };
 
 #[derive(Default)]
@@ -28,6 +28,10 @@ impl TextureArchive {
             cursor,
             ..Default::default()
         })
+    }
+
+    pub fn new_empty() -> Self {
+        Default::default()
     }
 
     pub fn read(&mut self) -> Result<(), &str> {
@@ -198,9 +202,4 @@ impl TextureArchive {
             println!("{name}");
         }
     }
-}
-
-#[derive(Default)]
-pub struct EditableTextureArchive {
-    textures: GVRTexture,
 }
