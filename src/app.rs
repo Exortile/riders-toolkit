@@ -62,7 +62,13 @@ impl EguiApp {
         modal.show_dialog();
 
         ui.horizontal(|ui| {
-            if ui.button("Open file...").clicked() {
+            if ui
+                .button("Open file...")
+                .on_hover_ui(|ui| {
+                    ui.label("Opens a pre-existing GVR texture archive.");
+                })
+                .clicked()
+            {
                 if let Some(path) = rfd::FileDialog::new().pick_file() {
                     self.picked_file = Some(path.display().to_string());
 
@@ -89,7 +95,9 @@ impl EguiApp {
                 }
             }
 
-            if ui.button("Create new...").clicked() {
+            if ui.button("Create new...").on_hover_ui(|ui| {
+                ui.label("Makes a new empty texture archive, where you can start adding textures into.");
+            }).clicked() {
                 self.current_tex_archive = Some(TextureArchive::new_empty());
             }
 
@@ -105,7 +113,9 @@ impl EguiApp {
                 .add_enabled(
                     is_archive_exportable,
                     egui::Button::new("Export archive..."),
-                )
+                ).on_hover_ui(|ui| {
+                    ui.label("Exports all the given textures in the list as a GVR texture archive.");
+                })
                 .clicked()
             {
                 if let Some(rfd_path) = rfd::FileDialog::new().save_file() {
@@ -141,7 +151,14 @@ impl EguiApp {
 
         if let Some(tex_archive) = &mut self.current_tex_archive {
             ui.separator();
-            ui.checkbox(&mut tex_archive.is_without_model, "Is without a model");
+
+            ui.checkbox(&mut tex_archive.is_without_model, "Is without a model")
+                .on_hover_ui(|ui| {
+                    ui.label(
+                        "Whether or not this texture archive is associated with a 3D model or not.",
+                    );
+                });
+
             ui.horizontal(|ui| {
                 ui.heading("Texture list:");
 
@@ -185,7 +202,7 @@ impl EguiApp {
                             modal
                                 .dialog()
                                 .with_title("Error")
-                                .with_body(format!("File {} is not a proper GVR texture.", file))
+                                .with_body(format!("File {} is not a valid GVR texture.", file))
                                 .with_icon(Icon::Error)
                                 .open();
                         } else {
@@ -234,7 +251,13 @@ impl EguiApp {
                             ui.scope(|ui| {
                                 ui.style_mut().visuals.widgets.hovered.weak_bg_fill =
                                     Color32::DARK_RED;
-                                if ui.button("Remove").clicked() {
+                                if ui
+                                    .button("Remove")
+                                    .on_hover_ui(|ui| {
+                                        ui.label("Removes this texture from the list.");
+                                    })
+                                    .clicked()
+                                {
                                     removed_index = Some(i - 1);
                                 }
                             });
