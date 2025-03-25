@@ -1,6 +1,8 @@
 use std::io::Cursor;
 
-use crate::riders::{gvr_texture::GVRTexture, texture_archive::TextureArchive};
+use crate::riders::{
+    gvr_texture::GVRTexture, packman_archive::PackManArchive, texture_archive::TextureArchive,
+};
 use egui::Color32;
 use egui_modal::{Icon, Modal};
 use strum::IntoEnumIterator;
@@ -20,10 +22,29 @@ enum AppTabs {
 }
 
 #[derive(Default)]
+struct GraphicalArchiveContext {
+    picked_file: Option<String>,
+}
+
+#[derive(Default)]
+struct TextureArchiveContext {
+    picked_file: Option<String>,
+    archive: Option<TextureArchive>,
+}
+
+#[derive(Default)]
+struct PackManArchiveContext {
+    picked_file: Option<String>,
+    archive: Option<PackManArchive>,
+}
+
+#[derive(Default)]
 pub struct EguiApp {
     current_tab: AppTabs,
-    picked_file: Option<String>,
-    current_tex_archive: Option<TextureArchive>,
+
+    texture_archive_ctx: TextureArchiveContext,
+    graphical_archive_ctx: GraphicalArchiveContext,
+    packman_archive_ctx: PackManArchiveContext,
 }
 
 impl EguiApp {
@@ -40,14 +61,23 @@ impl EguiApp {
         Self::default()
     }
 
-    fn draw_tab_bar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            for tab in AppTabs::iter() {
-                ui.selectable_value(&mut self.current_tab, tab.clone(), tab.to_string());
-            }
+    fn draw_tab_bar(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::top("tab-bar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                for tab in AppTabs::iter() {
+                    ui.selectable_value(&mut self.current_tab, tab.clone(), tab.to_string());
+                }
+            });
+            ui.add_space(1.);
         });
+    }
 
-        ui.separator();
+    fn draw_side_bars(&mut self, ctx: &egui::Context) {
+        if self.current_tab == AppTabs::GraphicalArchives {
+            egui::SidePanel::left("graphical-left-sidebar").show(ctx, |ui| {
+                ui.small("No objects.");
+            });
+        }
     }
 
     fn draw_home_tab(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
@@ -70,9 +100,9 @@ impl EguiApp {
                 .clicked()
             {
                 if let Some(path) = rfd::FileDialog::new().pick_file() {
-                    self.picked_file = Some(path.display().to_string());
+                    self.texture_archive_ctx.picked_file = Some(path.display().to_string());
 
-                    let tex_archive = TextureArchive::new(self.picked_file.clone().unwrap());
+                    let tex_archive = TextureArchive::new(self.texture_archive_ctx.picked_file.clone().unwrap());
                     if tex_archive.is_err() {
                         modal
                             .dialog()
@@ -81,10 +111,10 @@ impl EguiApp {
                             .with_icon(Icon::Error)
                             .open();
                     } else {
-                        self.current_tex_archive = Some(tex_archive.unwrap());
+                        self.texture_archive_ctx.archive = Some(tex_archive.unwrap());
                     }
 
-                    if let Err(err_str) = &self.current_tex_archive.as_mut().unwrap().read() {
+                    if let Err(err_str) = &self.texture_archive_ctx.archive.as_mut().unwrap().read() {
                         modal
                             .dialog()
                             .with_title("Error")
@@ -98,12 +128,12 @@ impl EguiApp {
             if ui.button("Create new...").on_hover_ui(|ui| {
                 ui.label("Makes a new empty texture archive, where you can start adding textures into.");
             }).clicked() {
-                self.current_tex_archive = Some(TextureArchive::new_empty());
+                self.texture_archive_ctx.archive = Some(TextureArchive::new_empty());
             }
 
-            let is_archive_exportable = self.current_tex_archive.is_some()
+            let is_archive_exportable = self.texture_archive_ctx.archive.is_some()
                 && !self
-                    .current_tex_archive
+                    .texture_archive_ctx.archive
                     .as_ref()
                     .unwrap()
                     .textures
@@ -120,7 +150,7 @@ impl EguiApp {
             {
                 if let Some(rfd_path) = rfd::FileDialog::new().save_file() {
                     if self
-                        .current_tex_archive
+                        .texture_archive_ctx.archive
                         .as_ref()
                         .unwrap()
                         .export(&rfd_path.display().to_string())
@@ -144,12 +174,12 @@ impl EguiApp {
             }
         });
 
-        if let Some(picked_file) = &self.picked_file {
+        if let Some(picked_file) = &self.texture_archive_ctx.picked_file {
             ui.label("Picked file:");
             ui.monospace(picked_file.to_string());
         }
 
-        if let Some(tex_archive) = &mut self.current_tex_archive {
+        if let Some(tex_archive) = &mut self.texture_archive_ctx.archive {
             ui.separator();
 
             ui.checkbox(&mut tex_archive.is_without_model, "Is without a model")
@@ -238,15 +268,29 @@ impl EguiApp {
                                 egui::TextEdit::singleline(&mut tex.name).hint_text("Texture name"),
                             );
 
-                            if ui.add_enabled(i > 1, egui::Button::new("⏶")).clicked() {
-                                moved_up_index = Some(i - 1);
-                            }
-                            if ui
-                                .add_enabled(i - 1 < textures_count - 1, egui::Button::new("⏷"))
-                                .clicked()
-                            {
-                                moved_down_index = Some(i - 1);
-                            }
+                            ui.spacing_mut().button_padding = [1., 0.].into();
+                            ui.scope(|ui| {
+                                ui.style_mut().spacing.item_spacing = [10., 0.].into();
+                                //ui.spacing_mut().button_padding.y = 2.;
+                                ui.vertical(|ui| {
+                                    ui.add_enabled_ui(i > 1, |ui| {
+                                        let button =
+                                            ui.add_sized([1., 1.], egui::Button::new("⏶").small());
+                                        if button.clicked() {
+                                            moved_up_index = Some(i - 1);
+                                        }
+                                    });
+                                    if ui
+                                        .add_enabled(
+                                            i - 1 < textures_count - 1,
+                                            egui::Button::new("⏷").small(),
+                                        )
+                                        .clicked()
+                                    {
+                                        moved_down_index = Some(i - 1);
+                                    }
+                                });
+                            });
 
                             ui.scope(|ui| {
                                 ui.style_mut().visuals.widgets.hovered.weak_bg_fill =
@@ -279,10 +323,61 @@ impl EguiApp {
         }
     }
 
+    fn draw_graphical_archive_tab(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+        if ui.button("Open").clicked() {
+            if let Some(path) = rfd::FileDialog::new().pick_file() {
+                self.graphical_archive_ctx.picked_file = Some(path.display().to_string());
+            }
+        }
+
+        if let Some(picked_file) = &self.graphical_archive_ctx.picked_file {
+            ui.label("Picked file:");
+            ui.monospace(picked_file);
+        }
+    }
+
+    fn draw_packman_archive_tab(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+        if ui.button("Open").clicked() {
+            if let Some(path) = rfd::FileDialog::new().pick_file() {
+                self.packman_archive_ctx.picked_file = Some(path.display().to_string());
+                if let Ok(mut archive) =
+                    PackManArchive::new(self.packman_archive_ctx.picked_file.as_ref().unwrap())
+                {
+                    archive.read().unwrap();
+                    self.packman_archive_ctx.archive = Some(archive);
+                }
+            }
+        }
+
+        if let Some(picked_file) = &self.packman_archive_ctx.picked_file {
+            ui.label("Picked file:");
+            ui.monospace(picked_file);
+        }
+
+        if let Some(archive) = &self.packman_archive_ctx.archive {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.label(format!("Folder count: {}", archive.folders.len()));
+
+                for (i, folder) in archive.folders.iter().enumerate() {
+                    ui.separator();
+                    ui.collapsing(format!("Folder {i}, ID: {}", folder.id), |ui| {
+                        for (i, file) in folder.files.iter().enumerate() {
+                            ui.label(format!("File {i}:"));
+                            ui.label(format!("Size: {:#x}", file.len()));
+                            ui.add_space(8.0);
+                        }
+                    });
+                }
+            });
+        }
+    }
+
     fn draw_current_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         match self.current_tab {
-            AppTabs::TextureArchives => self.draw_tex_archive_tab(ctx, ui),
             AppTabs::Home => self.draw_home_tab(ctx, ui),
+            AppTabs::TextureArchives => self.draw_tex_archive_tab(ctx, ui),
+            AppTabs::GraphicalArchives => self.draw_graphical_archive_tab(ctx, ui),
+            AppTabs::PackManArchives => self.draw_packman_archive_tab(ctx, ui),
             _ => {}
         }
     }
@@ -290,8 +385,10 @@ impl EguiApp {
 
 impl eframe::App for EguiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.draw_tab_bar(ctx);
+        self.draw_side_bars(ctx);
+
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.draw_tab_bar(ui);
             self.draw_current_tab(ctx, ui);
         });
     }
