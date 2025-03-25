@@ -1,6 +1,7 @@
 use num::{FromPrimitive, Unsigned};
 
 pub enum Alignment<T: Unsigned> {
+    A4(T),
     A8(T),
     A16(T),
     A32(T),
@@ -16,6 +17,9 @@ where
 {
     pub fn unwrap(&self) -> T {
         match self {
+            Alignment::A4(val) => {
+                (val.clone() + T::from_u8(3).unwrap()) & T::from_u8(3).map(|x| !x).unwrap()
+            }
             Alignment::A8(val) => {
                 (val.clone() + T::from_u8(7).unwrap()) & T::from_u8(7).map(|x| !x).unwrap()
             }
@@ -32,6 +36,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn align_4bit() {
+        let alignment = Alignment::A4(1u32);
+        assert_eq!(alignment.unwrap(), 4);
+    }
 
     #[test]
     fn align_8bit() {
