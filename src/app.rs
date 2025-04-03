@@ -354,13 +354,36 @@ impl EguiApp {
             ui.monospace(picked_file);
         }
 
-        if let Some(archive) = &self.packman_archive_ctx.archive {
+        if let Some(archive) = &mut self.packman_archive_ctx.archive {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.label(format!("Folder count: {}", archive.folders.len()));
 
-                for (i, folder) in archive.folders.iter().enumerate() {
+                for (i, folder) in archive.folders.iter_mut().enumerate() {
                     ui.separator();
-                    ui.collapsing(format!("Folder {i}, ID: {}", folder.id), |ui| {
+                    ui.collapsing(format!("Folder {i}"), |ui| {
+                        ui.label("ID:");
+
+                        if !folder.is_id_valid {
+                            let mut empty = String::new();
+                            ui.text_edit_singleline(&mut empty);
+
+                            if let Ok(result) = empty.parse() {
+                                folder.is_id_valid = true;
+                                folder.id = result;
+                            }
+                        } else {
+                            let mut tmp_value = format!("{}", &folder.id);
+                            ui.text_edit_singleline(&mut tmp_value);
+
+                            if let Ok(result) = tmp_value.parse() {
+                                folder.is_id_valid = true;
+                                folder.id = result;
+                            } else if tmp_value.is_empty() {
+                                folder.is_id_valid = false;
+                                folder.id = 0;
+                            }
+                        }
+
                         for (i, file) in folder.files.iter().enumerate() {
                             ui.label(format!("File {i}:"));
                             ui.label(format!("Size: {:#x}", file.len()));

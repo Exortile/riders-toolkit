@@ -6,6 +6,7 @@ use crate::util::Alignment;
 
 #[derive(Default)]
 pub struct PackManFolder {
+    pub is_id_valid: bool,
     pub id: u16,
     pub file_count: u8,
     pub files: Vec<Vec<u8>>,
@@ -57,7 +58,9 @@ impl PackManArchive {
 
         for i in 0..folder_count {
             let folder_id = self.cursor.read_u16::<BigEndian>()?;
-            self.folders[i as usize].id = folder_id;
+            let folder = &mut self.folders[i as usize];
+            folder.id = folder_id;
+            folder.is_id_valid = true;
         }
 
         let file_count = self.get_all_file_count();
