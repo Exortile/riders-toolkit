@@ -37,6 +37,10 @@ impl PackManArchive {
         })
     }
 
+    pub fn new_empty() -> Self {
+        Default::default()
+    }
+
     pub fn read(&mut self) -> std::io::Result<()> {
         let folder_count = self.cursor.read_u32::<BigEndian>()?;
 
