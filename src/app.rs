@@ -394,6 +394,8 @@ impl EguiApp {
 
                         // Handle editing of the ID properly with validation checks
                         ui.scope(|ui| {
+                            let folder_hash = egui::Id::new(format!("packman-id-textedit{}", i));
+
                             if !folder.is_id_valid {
                                 // Text edit background color
                                 ui.visuals_mut().extreme_bg_color = Color32::from_rgb(30, 8, 5);
@@ -404,7 +406,7 @@ impl EguiApp {
                                 let mut empty = String::new();
 
                                 ui.horizontal(|ui| {
-                                    ui.text_edit_singleline(&mut empty);
+                                    ui.add(egui::TextEdit::singleline(&mut empty).id(folder_hash));
                                     ui.visuals_mut().override_text_color = Some(Color32::RED);
                                     ui.label("Please specify an ID number.");
                                 });
@@ -415,7 +417,7 @@ impl EguiApp {
                                 }
                             } else {
                                 let mut tmp_value = format!("{}", &folder.id);
-                                ui.text_edit_singleline(&mut tmp_value);
+                                ui.add(egui::TextEdit::singleline(&mut tmp_value).id(folder_hash));
 
                                 if let Ok(result) = tmp_value.parse() {
                                     folder.is_id_valid = true;
