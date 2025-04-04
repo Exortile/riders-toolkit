@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use crate::riders::{
     gvr_texture::GVRTexture,
-    packman_archive::{PackManArchive, PackManFolder},
+    packman_archive::{PackManArchive, PackManFile, PackManFolder},
     texture_archive::TextureArchive,
 };
 use egui::Color32;
@@ -338,7 +338,10 @@ impl EguiApp {
         }
     }
 
-    fn draw_packman_archive_tab(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn draw_packman_archive_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        let mut modal = Modal::new(ctx, "generic-packman-dialog");
+        modal.show_dialog();
+
         ui.horizontal(|ui| {
             if ui.button("Open file...").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_file() {
@@ -363,14 +366,40 @@ impl EguiApp {
 
             let mut export_enabled = false;
             if let Some(archive) = &self.packman_archive_ctx.archive {
-                export_enabled =
-                    !archive.folders.is_empty() && archive.folders.iter().all(|f| f.is_id_valid);
+                export_enabled = !archive.folders.is_empty()
+                    && archive.folders.iter().all(|f| {
+                        f.is_id_valid
+                            && !f.files.is_empty()
+                            && f.files.iter().any(|f| !f.data.is_empty())
+                    });
             }
             if ui
                 .add_enabled(export_enabled, egui::Button::new("Export archive..."))
                 .clicked()
             {
-                todo!("Export a PackMan archive");
+                if let Some(path) = rfd::FileDialog::new().save_file() {
+                    if let Err(error) = self
+                        .packman_archive_ctx
+                        .archive
+                        .as_mut()
+                        .unwrap()
+                        .export(&path.display().to_string())
+                    {
+                        modal
+                            .dialog()
+                            .with_title("Error")
+                            .with_body(error)
+                            .with_icon(Icon::Error)
+                            .open();
+                    } else {
+                        modal
+                            .dialog()
+                            .with_title("Success")
+                            .with_body("Archive exported successfully!")
+                            .with_icon(Icon::Success)
+                            .open();
+                    }
+                }
             }
         });
 
@@ -433,14 +462,14 @@ impl EguiApp {
                             if ui.button("Add files...").clicked() {
                                 if let Some(files) = rfd::FileDialog::new().pick_files() {
                                     for file in files {
-                                        folder.files.push(
+                                        folder.files.push(PackManFile::new(
                                             std::fs::read(file.display().to_string()).unwrap(),
-                                        );
+                                        ));
                                     }
                                 }
                             }
                             if ui.button("Add empty file...").clicked() {
-                                folder.files.push(Vec::new());
+                                folder.files.push(PackManFile::default());
                             }
                             if ui.button("Remove folder").clicked() {
                                 removed_folder_idx = Some(i);
@@ -452,16 +481,18 @@ impl EguiApp {
                         for (i, file) in folder.files.iter_mut().enumerate() {
                             ui.horizontal(|ui| {
                                 ui.label(format!("File {i}:"));
-                                ui.label(format!("Size: {:#x}", file.len()));
+                                ui.label(format!("Size: {:#x}", file.data.len()));
                             });
                             ui.horizontal(|ui| {
                                 if ui.button("Replace").clicked() {
                                     if let Some(path) = rfd::FileDialog::new().pick_file() {
-                                        *file = std::fs::read(path.display().to_string()).unwrap();
+                                        *file = PackManFile::new(
+                                            std::fs::read(path.display().to_string()).unwrap(),
+                                        );
                                     }
                                 }
                                 if ui.button("Clear").clicked() {
-                                    file.clear();
+                                    file.data.clear();
                                 }
                                 if ui.button("Remove").clicked() {
                                     deleted_idx = Some(i);
