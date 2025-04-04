@@ -338,10 +338,7 @@ impl EguiApp {
         }
     }
 
-    fn draw_packman_archive_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-        let mut modal = Modal::new(ctx, "generic-packman-dialog");
-        modal.show_dialog();
-
+    fn draw_packman_archive_operations(&mut self, ui: &mut egui::Ui, modal: &mut Modal) {
         ui.horizontal(|ui| {
             if ui.button("Open file...").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_file() {
@@ -402,116 +399,148 @@ impl EguiApp {
                 }
             }
         });
+    }
 
-        if let Some(archive) = &mut self.packman_archive_ctx.archive {
-            ui.separator();
-            ui.label(format!("Folder count: {}", archive.folders.len()));
+    fn draw_open_packman_folder_ui(
+        ui: &mut egui::Ui,
+        idx: usize,
+        folder: &mut PackManFolder,
+        removed_folder_idx: &mut Option<usize>,
+    ) {
+        ui.collapsing(format!("Folder {idx}"), |ui| {
+            ui.label("ID:");
 
-            if ui.button("Add folder").clicked() {
-                archive.folders.push(PackManFolder::new(0));
-            }
+            // Handle editing of the ID properly with validation checks
+            ui.scope(|ui| {
+                let folder_id_hash = egui::Id::new(format!("packman-id-textedit{idx}"));
 
-            ui.separator();
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.set_min_size(ui.max_rect().size());
+                if !folder.is_id_valid {
+                    // Text edit background color
+                    ui.visuals_mut().extreme_bg_color = Color32::from_rgb(30, 8, 5);
 
-                let mut removed_folder_idx: Option<usize> = None;
+                    ui.visuals_mut().widgets.hovered.bg_stroke.color = Color32::DARK_RED;
 
-                for (i, folder) in archive.folders.iter_mut().enumerate() {
-                    ui.collapsing(format!("Folder {i}"), |ui| {
-                        ui.label(format!("ID: (valid: {})", folder.is_id_valid));
+                    let mut empty = String::new();
 
-                        // Handle editing of the ID properly with validation checks
-                        ui.scope(|ui| {
-                            let folder_hash = egui::Id::new(format!("packman-id-textedit{}", i));
-
-                            if !folder.is_id_valid {
-                                // Text edit background color
-                                ui.visuals_mut().extreme_bg_color = Color32::from_rgb(30, 8, 5);
-
-                                ui.visuals_mut().widgets.hovered.bg_stroke.color =
-                                    Color32::DARK_RED;
-
-                                let mut empty = String::new();
-
-                                ui.horizontal(|ui| {
-                                    ui.add(egui::TextEdit::singleline(&mut empty).id(folder_hash));
-                                    ui.visuals_mut().override_text_color = Some(Color32::RED);
-                                    ui.label("Please specify an ID number.");
-                                });
-
-                                if let Ok(result) = empty.parse() {
-                                    folder.is_id_valid = true;
-                                    folder.id = result;
-                                }
-                            } else {
-                                let mut tmp_value = format!("{}", &folder.id);
-                                ui.add(egui::TextEdit::singleline(&mut tmp_value).id(folder_hash));
-
-                                if let Ok(result) = tmp_value.parse() {
-                                    folder.is_id_valid = true;
-                                    folder.id = result;
-                                } else if tmp_value.is_empty() {
-                                    folder.is_id_valid = false;
-                                    folder.id = 0;
-                                }
-                            }
-                        });
-
-                        ui.horizontal(|ui| {
-                            if ui.button("Add files...").clicked() {
-                                if let Some(files) = rfd::FileDialog::new().pick_files() {
-                                    for file in files {
-                                        folder.files.push(PackManFile::new(
-                                            std::fs::read(file.display().to_string()).unwrap(),
-                                        ));
-                                    }
-                                }
-                            }
-                            if ui.button("Add empty file...").clicked() {
-                                folder.files.push(PackManFile::default());
-                            }
-                            if ui.button("Remove folder").clicked() {
-                                removed_folder_idx = Some(i);
-                            }
-                        });
-                        ui.separator();
-
-                        let mut deleted_idx: Option<usize> = None;
-                        for (i, file) in folder.files.iter_mut().enumerate() {
-                            ui.horizontal(|ui| {
-                                ui.label(format!("File {i}:"));
-                                ui.label(format!("Size: {:#x}", file.data.len()));
-                            });
-                            ui.horizontal(|ui| {
-                                if ui.button("Replace").clicked() {
-                                    if let Some(path) = rfd::FileDialog::new().pick_file() {
-                                        *file = PackManFile::new(
-                                            std::fs::read(path.display().to_string()).unwrap(),
-                                        );
-                                    }
-                                }
-                                if ui.button("Clear").clicked() {
-                                    file.data.clear();
-                                }
-                                if ui.button("Remove").clicked() {
-                                    deleted_idx = Some(i);
-                                }
-                            });
-                            ui.add_space(8.0);
-                        }
-
-                        if let Some(idx) = deleted_idx {
-                            folder.files.remove(idx);
-                        }
+                    ui.horizontal(|ui| {
+                        ui.add(egui::TextEdit::singleline(&mut empty).id(folder_id_hash));
+                        ui.visuals_mut().override_text_color = Some(Color32::RED);
+                        ui.label("Please specify an ID number.");
                     });
-                }
 
-                if let Some(idx) = removed_folder_idx {
-                    archive.folders.remove(idx);
+                    if let Ok(result) = empty.parse() {
+                        folder.is_id_valid = true;
+                        folder.id = result;
+                    }
+                } else {
+                    // ID field contains a valid number
+                    let mut tmp_value = format!("{}", &folder.id);
+                    ui.add(egui::TextEdit::singleline(&mut tmp_value).id(folder_id_hash));
+
+                    if let Ok(result) = tmp_value.parse() {
+                        folder.is_id_valid = true;
+                        folder.id = result;
+                    } else if tmp_value.is_empty() {
+                        folder.is_id_valid = false;
+                        folder.id = 0;
+                    }
                 }
             });
+
+            // Folder operations (adding files, removing folder)
+            ui.horizontal(|ui| {
+                if ui.button("Add files...").clicked() {
+                    if let Some(files) = rfd::FileDialog::new().pick_files() {
+                        for file in files {
+                            folder.files.push(PackManFile::new(
+                                std::fs::read(file.display().to_string()).unwrap(),
+                            ));
+                        }
+                    }
+                }
+                if ui.button("Add empty file...").clicked() {
+                    folder.files.push(PackManFile::default());
+                }
+                if ui.button("Remove folder").clicked() {
+                    *removed_folder_idx = Some(idx);
+                }
+            });
+            ui.separator();
+
+            let mut deleted_idx: Option<usize> = None;
+            for (i, file) in folder.files.iter_mut().enumerate() {
+                Self::draw_open_packman_file_ui(ui, i, file, &mut deleted_idx);
+            }
+
+            if let Some(idx) = deleted_idx {
+                folder.files.remove(idx);
+            }
+        });
+    }
+
+    fn draw_open_packman_file_ui(
+        ui: &mut egui::Ui,
+        idx: usize,
+        file: &mut PackManFile,
+        deleted_idx: &mut Option<usize>,
+    ) {
+        ui.horizontal(|ui| {
+            ui.label(format!("File {idx}:"));
+            ui.label(format!("Size: {:#x}", file.data.len()));
+        });
+
+        // File specific operations
+        ui.horizontal(|ui| {
+            if ui.button("Replace").clicked() {
+                if let Some(path) = rfd::FileDialog::new().pick_file() {
+                    *file = PackManFile::new(std::fs::read(path.display().to_string()).unwrap());
+                }
+            }
+            if ui.button("Clear").clicked() {
+                file.data.clear();
+            }
+            if ui.button("Remove").clicked() {
+                *deleted_idx = Some(idx);
+            }
+        });
+        ui.add_space(8.0);
+    }
+
+    fn draw_packman_archive_file_operations(&mut self, ui: &mut egui::Ui) {
+        if self.packman_archive_ctx.archive.is_none() {
+            return;
         }
+        let archive = self.packman_archive_ctx.archive.as_mut().unwrap();
+
+        ui.separator();
+        ui.label(format!("Folder count: {}", archive.folders.len()));
+
+        if ui.button("Add folder").clicked() {
+            archive.folders.push(PackManFolder::new(0));
+        }
+
+        ui.separator();
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.set_min_size(ui.max_rect().size());
+
+            let mut removed_folder_idx: Option<usize> = None;
+
+            for (i, folder) in archive.folders.iter_mut().enumerate() {
+                Self::draw_open_packman_folder_ui(ui, i, folder, &mut removed_folder_idx);
+            }
+
+            if let Some(idx) = removed_folder_idx {
+                archive.folders.remove(idx);
+            }
+        });
+    }
+
+    fn draw_packman_archive_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        let mut modal = Modal::new(ctx, "generic-packman-dialog");
+        modal.show_dialog();
+
+        self.draw_packman_archive_operations(ui, &mut modal);
+        self.draw_packman_archive_file_operations(ui);
     }
 
     fn draw_current_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {

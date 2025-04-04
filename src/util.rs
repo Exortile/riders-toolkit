@@ -1,9 +1,19 @@
+//! A very simple utility module. Contains some of the widely used utility functionalities.
+
 use num::{FromPrimitive, Unsigned};
 
+/// Provides an easy way to align (round up) any unsigned integer to the given alignment.
+///
+/// Once an [`Alignment`] is constructed, you can call [`Alignment::unwrap()`] on it to receive the
+/// resulting aligned value.
 pub enum Alignment<T: Unsigned> {
+    /// Aligns to a 4-bit alignment.
     A4(T),
+    /// Aligns to a 8-bit alignment.
     A8(T),
+    /// Aligns to a 16-bit alignment.
     A16(T),
+    /// Aligns to a 32-bit alignment.
     A32(T),
 }
 
@@ -15,6 +25,7 @@ where
     T: std::ops::Not<Output = T>,
     T: std::ops::BitAnd<Output = T>,
 {
+    /// Aligns and returns the given value as per the given alignment variant.
     pub fn unwrap(&self) -> T {
         match self {
             Alignment::A4(val) => {

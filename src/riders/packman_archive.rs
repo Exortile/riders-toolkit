@@ -1,3 +1,6 @@
+//! This module contains all the functionality to work with Sonic Riders PackMan archives, which
+//! most game files are, with certain exceptions.
+
 use std::{
     fs::File,
     io::{Cursor, Read, Seek, Write},
@@ -7,13 +10,17 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::util::Alignment;
 
+/// Represents a singular file in a folder in a PackMan archive.
 #[derive(Default)]
 pub struct PackManFile {
+    /// The buffer of data for this file.
     pub data: Vec<u8>,
+    /// Only used during the export process and during debug builds.
     pub exported_offset: u32,
 }
 
 impl PackManFile {
+    /// Creates a new [`PackManFile`] with the given `data` buffer.
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             data,
@@ -22,15 +29,27 @@ impl PackManFile {
     }
 }
 
+/// Represents a singular folder in a PackMan archive, that contains files with an associated
+/// folder ID, which Sonic Riders uses to know what to do with the given folder and the files in
+/// it.
 #[derive(Default)]
 pub struct PackManFolder {
+    /// Set to `true` if the user properly set an ID from the GUI, otherwise `false`.
+    /// Will prohibit export if any folders have this set to `false`.
     pub is_id_valid: bool,
+    /// The ID of this folder, used by Sonic Riders to know how to handle the files in the folder.
     pub id: u16,
+    /// Only used during reading an existing PackMan archive.
+    /// Use [`Vec::len()`] on [`PackManFolder::files`] otherwise.
     pub file_count: u8,
+    /// Contains all the files in the folder.
     pub files: Vec<PackManFile>,
 }
 
 impl PackManFolder {
+    /// Constructs a new [`PackManFolder`] with the given `file_count`. `file_count` is only used
+    /// during reading an existing PackMan archive, so if you're trying to create an empty folder,
+    /// feel free to use 0 as the `file_count`.
     pub fn new(file_count: u8) -> Self {
         Self {
             file_count,
@@ -40,14 +59,23 @@ impl PackManFolder {
     }
 }
 
+/// Represents a PackMan archive, that contains multiple folders with their own files in them.
+///
+/// Each folder has an ID associated with them, by which Sonic Riders knows what to do with the
+/// files in a given folder.
 #[derive(Default)]
 pub struct PackManArchive {
+    /// This is used if the archive was constructed by reading an already existing PackMan archive.
+    /// It's only used in [`PackManArchive::read()`], and then after that,
+    /// all data is already stored in [`PackManArchive::folders`].
     cursor: Cursor<Vec<u8>>,
 
+    /// Contains all the folders in the archive.
     pub folders: Vec<PackManFolder>,
 }
 
 impl PackManArchive {
+    /// Creates a new [`PackManArchive`] by reading the PackMan archive from the given `file_path`.
     pub fn new(file_path: &str) -> std::io::Result<Self> {
         Ok(Self {
             cursor: Cursor::new(std::fs::read(file_path)?),
@@ -55,11 +83,16 @@ impl PackManArchive {
         })
     }
 
+    /// Creates an empty [`PackManArchive`].
     pub fn new_empty() -> Self {
         Default::default()
     }
 
+    /// Reads the PackMan archive contents of the buffer stored in [`PackManArchive::cursor`].
+    ///
+    /// This assumes you created the archive via [`PackManArchive::new()`].
     pub fn read(&mut self) -> std::io::Result<()> {
+        // TODO: add validation
         let folder_count = self.cursor.read_u32::<BigEndian>()?;
 
         for _ in 0..folder_count {
@@ -133,7 +166,7 @@ impl PackManArchive {
     }
 
     /// Gets the count of all the files from each folder in the archive.
-    /// Only used when reading in an archive via read().
+    /// Only used when reading an archive via [`PackManArchive::read()`], and all folders have been instantiated.
     fn get_all_file_count(&self) -> usize {
         let mut file_count: usize = 0;
         for folder in &self.folders {
@@ -142,6 +175,11 @@ impl PackManArchive {
         file_count
     }
 
+    /// Exports the data in this [`PackManArchive`] to the properly formatted binary file,
+    /// using the given file path in `output_path`.
+    ///
+    /// Only use this function if all folders have at least one file in them, and each folder has a
+    /// valid ID set.
     pub fn export(&mut self, output_path: &str) -> std::io::Result<()> {
         let mut file = File::create(output_path)?;
 
@@ -211,7 +249,7 @@ impl PackManArchive {
     }
 
     /// Gets the offset of where the first file in the archive will be written to.
-    /// Only used during exporting right before writing offset table.
+    /// Only used during exporting via [`PackManArchive::export()`] right before writing offset table.
     fn get_first_file_offset(&self, file: &mut File, file_count: u16) -> std::io::Result<u32> {
         Ok(Alignment::A32(
             (file.stream_position()? as usize) + size_of::<u32>() * file_count as usize,

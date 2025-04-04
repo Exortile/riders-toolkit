@@ -1,3 +1,5 @@
+//! This module contains all the functionality to work with Sonic Riders GVR texture archives.
+
 use crate::util::Alignment;
 
 use super::gvr_texture::GVRTexture;
@@ -7,19 +9,32 @@ use std::{
     io::{BufRead, Cursor, Seek, SeekFrom, Write},
 };
 
+/// Represents a GVR texture archive, used by Sonic Riders in any place textures are needed/used.
 #[derive(Default)]
 pub struct TextureArchive {
+    /// Stores the file path of the file being read during [`TextureArchive::read()`].
     file_path: String,
+    /// Stores the file contents of the file being read from [`TextureArchive::file_path`].
     cursor: Cursor<Vec<u8>>,
 
+    /// Only used during reading a texture archive.
     texture_num: u16,
+    /// Indicates whether this texture archive is associated with a 3D model, or if it's just a
+    /// general texture archive. If this is `true`, the exported file will also contain a bunch of
+    /// flags for each texture (`0x11`).
     pub is_without_model: bool,
 
+    /// Only used during reading a texture archive.
     gvr_offsets: Vec<u32>,
+    /// Contains all the GVR textures in this archive.
     pub textures: Vec<GVRTexture>,
 }
 
 impl TextureArchive {
+    /// Creates a new [`TextureArchive`], reading in the given archive in `file_path`.
+    ///
+    /// Does not read the archive contents automatically, that can be done via
+    /// [`TextureArchive::read()`].
     pub fn new(file_path: String) -> std::io::Result<Self> {
         let cursor = Cursor::new(std::fs::read(&file_path)?);
 
@@ -30,10 +45,15 @@ impl TextureArchive {
         })
     }
 
+    /// Creates an empty [`TextureArchive`].
     pub fn new_empty() -> Self {
         Default::default()
     }
 
+    /// Reads the contents of the archive, constructed with [`TextureArchive::new()`].
+    ///
+    /// This function performs validity checks on the file, checking if it's a valid GVR texture
+    /// archive file. It also checks if the textures in the archive are valid.
     pub fn read(&mut self) -> Result<(), &str> {
         self.texture_num = self.cursor.read_u16::<BigEndian>().unwrap();
         let is_without_model = self.cursor.read_u16::<BigEndian>().unwrap();
@@ -99,6 +119,11 @@ impl TextureArchive {
         Ok(())
     }
 
+    /// Exports all the textures in this archive to the properly formatted binary file to the path
+    /// given in `path`.
+    ///
+    /// Any textures in this archive that do not have a name will be named "unnamed" in the
+    /// resulting file.
     pub fn export(&self, path: &str) -> std::io::Result<()> {
         let mut file = File::create(path)?;
 
