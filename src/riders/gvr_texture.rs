@@ -8,7 +8,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 ///
 /// It's possible that when first constructed, it may not be a GVR texture.
 /// This should be double-checked via [`GVRTexture::validate()`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct GVRTexture {
     /// Name of the texture file. This only contains the name and not the file extension.
     pub name: String,

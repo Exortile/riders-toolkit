@@ -13,6 +13,7 @@ use std::{
 #[derive(Default)]
 pub struct TextureArchive {
     /// Stores the file path of the file being read during [`TextureArchive::read()`].
+    #[allow(dead_code)]
     file_path: String,
     /// Stores the file contents of the file being read from [`TextureArchive::file_path`].
     cursor: Cursor<Vec<u8>>,
@@ -110,6 +111,7 @@ impl TextureArchive {
             let _ = self.cursor.seek(SeekFrom::Start(last_pos));
         }
 
+        #[cfg(debug_assertions)]
         self.debug_print();
 
         if !self.validate_textures() {

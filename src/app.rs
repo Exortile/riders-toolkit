@@ -256,10 +256,11 @@ impl EguiApp {
                     let mut removed_index: Option<usize> = None;
                     let mut moved_up_index: Option<usize> = None;
                     let mut moved_down_index: Option<usize> = None;
+                    let mut duplicated_index: Option<usize> = None;
+                    let mut moved_index: Option<(usize, usize)> = None;
 
-                    let mut i = 1; // have to do it without enumerate()
                     let textures_count = tex_archive.textures.len();
-                    for tex in &mut tex_archive.textures {
+                    for (i, tex) in tex_archive.textures.iter_mut().enumerate() {
                         ui.horizontal(|ui| {
                             ui.scope(|ui| {
                                 ui.style_mut().interaction.selectable_labels = false;
@@ -275,21 +276,21 @@ impl EguiApp {
                                 ui.style_mut().spacing.item_spacing = [10., 0.].into();
                                 //ui.spacing_mut().button_padding.y = 2.;
                                 ui.vertical(|ui| {
-                                    ui.add_enabled_ui(i > 1, |ui| {
+                                    ui.add_enabled_ui(textures_count > 1, |ui| {
                                         let button =
                                             ui.add_sized([1., 1.], egui::Button::new("⏶").small());
                                         if button.clicked() {
-                                            moved_up_index = Some(i - 1);
+                                            moved_up_index = Some(i);
                                         }
                                     });
                                     if ui
                                         .add_enabled(
-                                            i - 1 < textures_count - 1,
+                                            textures_count > 1,
                                             egui::Button::new("⏷").small(),
                                         )
                                         .clicked()
                                     {
-                                        moved_down_index = Some(i - 1);
+                                        moved_down_index = Some(i);
                                     }
                                 });
                             });
@@ -304,22 +305,87 @@ impl EguiApp {
                                     })
                                     .clicked()
                                 {
-                                    removed_index = Some(i - 1);
+                                    removed_index = Some(i);
                                 }
                             });
-                        });
 
-                        i += 1;
+                            if ui.button("Duplicate").clicked() {
+                                duplicated_index = Some(i);
+                            }
+
+                            let move_response = ui.button("Move to...");
+                            let popup_id = ui.make_persistent_id(format!("move_btn_{i}"));
+                            if move_response.clicked() {
+                                ui.memory_mut(|mem| mem.toggle_popup(popup_id));
+                            }
+
+                            let below = egui::AboveOrBelow::Below;
+                            let close_on_click_outside =
+                                egui::popup::PopupCloseBehavior::CloseOnClickOutside;
+
+                            egui::popup::popup_above_or_below_widget(
+                                ui,
+                                popup_id,
+                                &move_response,
+                                below,
+                                close_on_click_outside,
+                                |ui| {
+                                    ui.set_min_width(150.0); // if you want to control the size
+
+                                    let mem_id = egui::Id::new("move_idx");
+                                    let mut idx = String::new();
+                                    ui.memory_mut(|mem| {
+                                        idx = mem
+                                            .data
+                                            .get_temp_mut_or::<String>(mem_id, String::new())
+                                            .to_string();
+                                    });
+                                    let response = ui.text_edit_singleline(&mut idx);
+                                    ui.memory_mut(|mem| {
+                                        mem.data.insert_temp::<String>(mem_id, idx);
+                                    });
+                                    if response.lost_focus()
+                                        && ui.input(|input| input.key_pressed(egui::Key::Enter))
+                                    {
+                                        ui.memory_mut(|mem| {
+                                            let str_idx = mem.data.get_temp::<String>(mem_id);
+                                            let parsed_idx =
+                                                str_idx.unwrap().parse::<usize>().unwrap();
+                                            moved_index = Some((i, parsed_idx));
+                                            mem.data.remove_temp::<String>(mem_id);
+                                            mem.close_popup();
+                                        });
+                                    }
+                                },
+                            );
+                        });
                     }
 
                     if let Some(idx) = removed_index {
                         tex_archive.textures.remove(idx);
                     }
                     if let Some(idx) = moved_up_index {
-                        tex_archive.textures.swap(idx, idx - 1);
+                        if idx == 0 {
+                            tex_archive.textures.swap(idx, textures_count - 1);
+                        } else {
+                            tex_archive.textures.swap(idx, idx - 1);
+                        }
                     }
                     if let Some(idx) = moved_down_index {
-                        tex_archive.textures.swap(idx, idx + 1);
+                        if idx == textures_count - 1 {
+                            tex_archive.textures.swap(idx, 0);
+                        } else {
+                            tex_archive.textures.swap(idx, idx + 1);
+                        }
+                    }
+                    if let Some(idx) = duplicated_index {
+                        let mut dup_texture = tex_archive.textures[idx].clone();
+                        dup_texture.name += "_duplicate";
+
+                        tex_archive.textures.insert(idx + 1, dup_texture);
+                    }
+                    if let Some((idx, moved_to_idx)) = moved_index {
+                        tex_archive.textures.swap(idx, moved_to_idx);
                     }
                 });
         }
