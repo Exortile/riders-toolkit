@@ -105,15 +105,15 @@ impl EguiApp {
                     self.texture_archive_ctx.picked_file = Some(path.display().to_string());
 
                     let tex_archive = TextureArchive::new(self.texture_archive_ctx.picked_file.clone().unwrap());
-                    if tex_archive.is_err() {
+                    if let Ok(archive) = tex_archive {
+                        self.texture_archive_ctx.archive = Some(archive);
+                    } else {
                         modal
                             .dialog()
                             .with_title("Error")
                             .with_body("File could not be opened.")
                             .with_icon(Icon::Error)
                             .open();
-                    } else {
-                        self.texture_archive_ctx.archive = Some(tex_archive.unwrap());
                     }
 
                     if let Err(err_str) = &self.texture_archive_ctx.archive.as_mut().unwrap().read() {
@@ -242,6 +242,32 @@ impl EguiApp {
                                 .dialog()
                                 .with_title("Success")
                                 .with_body("Texture(s) added succesfully!")
+                                .with_icon(Icon::Success)
+                                .open();
+                        }
+                    }
+                }
+
+                if ui
+                    .button("Extract all")
+                    .on_hover_ui(|ui| {
+                        ui.label("Extracts all the GVR textures in the current texture list into a folder.");
+                    })
+                    .clicked()
+                {
+                    if let Some(folder) = rfd::FileDialog::new().pick_folder() {
+                        if let Err(err) = tex_archive.extract_all(&folder) {
+                            modal
+                                .dialog()
+                                .with_title("Error")
+                                .with_body(err)
+                                .with_icon(Icon::Error)
+                                .open();
+                        } else {
+                            modal
+                                .dialog()
+                                .with_title("Success")
+                                .with_body(format!("Textures extracted succesfully to: {}", folder.display()))
                                 .with_icon(Icon::Success)
                                 .open();
                         }

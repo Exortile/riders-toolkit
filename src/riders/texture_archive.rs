@@ -169,6 +169,16 @@ impl TextureArchive {
         Ok(())
     }
 
+    /// Extracts all the contained GVR textures in this archive to a folder, given by `path`.
+    pub fn extract_all(&self, path: &std::path::Path) -> std::io::Result<()> {
+        for tex in &self.textures {
+            let filepath = path.join(format!("{}.gvr", tex.name));
+            std::fs::write(filepath, tex.data.get_ref())?;
+        }
+
+        Ok(())
+    }
+
     fn calculate_first_tex_offset(&self) -> usize {
         let mut result_offset = 4; // 4 bytes to account for start of file
         let offset_table_size = self.textures.len() * size_of::<u32>();
